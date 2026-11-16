@@ -27,7 +27,7 @@ function fillTemplate(ws, opts) {
     for (let r = 0; r < 8; r++) {
       const row = top + r;
       const x = items[r];
-      const blank = (v) => (!v || v === "無") ? null : v;
+      const blank = (v) => (!v || v === "無" || v === "空白") ? null : v;
       ws.getCell(`C${row}`).value = x ? blank(x.location) : null;
       ws.getCell(`D${row}`).value = x ? blank(x.client) : null;
       let text = x ? fullContent(x).replace(/\s*\n\s*/g, "；") : null;

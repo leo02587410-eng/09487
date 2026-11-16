@@ -156,7 +156,7 @@ datalist { display: none; }
           <div class="field"><label for="fDate">日期 <em>*</em></label><input type="date" id="fDate" required></div>
           <div class="field"><label for="fLoc">地點 <em>*</em></label><select id="fLoc" required>
             <option value="">請選擇地點</option>
-            <option>無</option><option>公司</option><option>電洽</option>
+            <option>空白</option><option>公司</option><option>電洽</option>
             <optgroup label="北部"><option>基隆市</option><option>台北市</option><option>新北市</option><option>桃園市</option><option>新竹市</option><option>新竹縣</option><option>宜蘭縣</option></optgroup>
             <optgroup label="中部"><option>苗栗縣</option><option>台中市</option><option>彰化縣</option><option>南投縣</option><option>雲林縣</option></optgroup>
             <optgroup label="南部"><option>嘉義市</option><option>嘉義縣</option><option>台南市</option><option>高雄市</option><option>屏東縣</option></optgroup>
@@ -165,7 +165,7 @@ datalist { display: none; }
             
           </select></div>
           <div class="field"><label for="fClient">客戶名稱 <em>*</em></label>
-            <div class="chips" role="group" aria-label="常用客戶"><button type="button" class="chip" data-client="無">無</button><button type="button" class="chip" data-client="公司">公司</button></div>
+            <div class="chips" role="group" aria-label="常用客戶"><button type="button" class="chip" data-client="空白">空白</button><button type="button" class="chip" data-client="公司">公司</button></div>
             <input id="fClient" list="clientList" placeholder="點上方選項，或輸入公司名稱" autocomplete="off" required></div>
           <div class="row2">
             <div class="field"><label for="fPerson">拜訪人姓名</label><input id="fPerson" list="personList" placeholder="例：王大明" autocomplete="off"></div>
@@ -223,6 +223,7 @@ datalist { display: none; }
   }
 
   const byDateTime = (a, b) => a.date.localeCompare(b.date) || (a.createdAt || 0) - (b.createdAt || 0);
+  const isBlank = (v) => !v || v === "無" || v === "空白";
   function weekEntries() {
     const s = ymd(weekStart), e = ymd(addDays(weekStart, 6));
     return entries.filter((x) => x.date >= s && x.date <= e);
@@ -250,7 +251,7 @@ datalist { display: none; }
       const el = $(id); el.textContent = "";
       [...new Set(vals.filter(Boolean))].sort().forEach((v) => { const o = document.createElement("option"); o.value = v; el.appendChild(o); });
     };
-    fill("clientList", ["無", ...entries.map((x) => x.client)]);
+    fill("clientList", ["空白", ...entries.map((x) => x.client)]);
     fill("locList", entries.map((x) => x.location));
     fill("personList", entries.map((x) => x.person));
   }
@@ -259,8 +260,8 @@ datalist { display: none; }
     const card = document.createElement("article");
     card.className = "entry";
     const top = document.createElement("div"); top.className = "entry-top";
-    const c = document.createElement("span"); c.className = "client"; c.textContent = x.client; top.appendChild(c);
-    if (x.location) { const l = document.createElement("span"); l.className = "loc"; l.textContent = x.location; top.appendChild(l); }
+    const c = document.createElement("span"); c.className = "client"; c.textContent = isBlank(x.client) ? "" : x.client; top.appendChild(c);
+    if (!isBlank(x.location)) { const l = document.createElement("span"); l.className = "loc"; l.textContent = x.location; top.appendChild(l); }
     if (showDate) { const d = document.createElement("span"); d.className = "loc"; d.style.cssText = "font-family:var(--font-data)"; const dt = parse(x.date); d.textContent = `${x.date}（${DOW[dt.getDay()]}）`; d.classList.remove("loc"); d.style.color = "var(--muted)"; d.style.fontSize = "13px"; top.appendChild(d); }
     card.appendChild(top);
     const body = document.createElement("div"); body.className = "content"; body.textContent = fullContent(x); card.appendChild(body);
@@ -403,7 +404,7 @@ datalist { display: none; }
     let last = "";
     w.forEach((x) => {
       if (x.date !== last) { const d = parse(x.date); lines.push(`【${md(d)}（${DOW[d.getDay()]}）】`); last = x.date; }
-      lines.push(`・客戶：${x.client}${x.location ? `　地點：${x.location}` : ""}`);
+      lines.push(`・客戶：${isBlank(x.client) ? "" : x.client}${isBlank(x.location) ? "" : `　地點：${x.location}`}`);
       lines.push(`  內容：${fullContent(x).replace(/\n/g, "\n        ")}`);
       if (x.followup) lines.push(`  後續：${x.followup}${x.done ? "（已完成）" : ""}`);
     });
@@ -446,7 +447,7 @@ function fillTemplate(ws, opts) {
     for (let r = 0; r < 8; r++) {
       const row = top + r;
       const x = items[r];
-      const blank = (v) => (!v || v === "無") ? null : v;
+      const blank = (v) => (!v || v === "無" || v === "空白") ? null : v;
       ws.getCell(`C${row}`).value = x ? blank(x.location) : null;
       ws.getCell(`D${row}`).value = x ? blank(x.client) : null;
       let text = x ? fullContent(x).replace(/\s*\n\s*/g, "；") : null;
