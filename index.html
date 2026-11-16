@@ -172,7 +172,7 @@ datalist { display: none; }
           <datalist id="personList"></datalist>
 
           <div class="field"><label for="fContent">談論工作內容 <em>*</em></label>
-            <div class="chips" role="group" aria-label="常用內容"><button type="button" class="chip" data-preset="業務週會議">業務週會議</button><button type="button" class="chip" data-preset="特休">特休</button></div>
+            <div class="chips" role="group" aria-label="常用內容"><button type="button" class="chip" data-preset="業務週會議">業務週會議</button><button type="button" class="chip" data-preset="特休">特休</button><button type="button" class="chip" data-preset="連假">連假</button></div>
             <textarea id="fContent" placeholder="點上方選項，或自行輸入會談重點、需求、結論…" required></textarea></div>
           <div class="field"><label for="fFollow">後續追蹤事項</label><input id="fFollow" placeholder="例：週三前寄報價單" autocomplete="off"></div>
           <div id="formError" class="field" hidden><span style="color:var(--danger);font-size:13px" id="formErrorText"></span></div>
@@ -354,9 +354,9 @@ datalist { display: none; }
     ev.preventDefault();
     if (!col) { showError("紀錄資料庫尚未連線，無法儲存。"); return; }
     const date = $("fDate").value, client = $("fClient").value.trim(), content = $("fContent").value.trim();
-    const leave = content === "特休";
+    const leave = content === "特休" || content === "連假";
     if (!date || !content) { showError("請填寫日期與談論工作內容。"); return; }
-    if (!leave && (!$("fLoc").value.trim() || !client)) { showError("請填寫地點與客戶名稱（特休可不填）。"); return; }
+    if (!leave && (!$("fLoc").value.trim() || !client)) { showError("請填寫地點與客戶名稱（特休、連假可不填）。"); return; }
     showError("");
     const prev = editingId ? entries.find((x) => x.id === editingId) : null;
     const now = Date.now();
