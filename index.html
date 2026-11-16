@@ -430,6 +430,7 @@ function fullContent(x) {
   }
   return who ? `前往拜訪${who}，${x.content}` : x.content;
 }
+function contentUnits(s, size) { let u = 0; for (const ch of String(s)) u += (/[\u0000-ÿ]/.test(ch) ? 1.1 : 2.1) * size / 11; return u; }
 // Wraps C/D/E of a row and grows the row so no text is hidden; font size stays as in the template.
 function fitRow(ws, row) {
   const textUnits = (s, size) => { let u = 0; for (const ch of String(s)) u += (/[\u0000-ÿ]/.test(ch) ? 1.1 : 2.1) * size / 11; return u; };
@@ -508,8 +509,11 @@ function fillTemplate(ws, opts) {
       ws.getColumn(1).width = 16;
       ws.getColumn(3).width = 13;
       ws.getColumn(4).width = 15;
+      const needE = Math.max(0, ...all.map((x) => contentUnits(fullContent(x).replace(/\s*\n\s*/g, "；"), 12)));
+      ws.getColumn(5).width = Math.min(150, Math.max(ws.getColumn(5).width || 67.78, Math.ceil(needE + 2)));
       const overflow = fillTemplate(ws, { monday: weekStart, week, staff: $("fStaff").value.trim(), entries: all });
       ws.name = `${weekStart.getFullYear()}-第${week}週`;
+      ws.pageSetup = { ...ws.pageSetup, paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
       ws.getCell("A1").value = "業 務 週 報 表";
       const weekend = all.filter((x) => parse(x.date).getDay() % 6 === 0).length;
       const buf = await wb.xlsx.writeBuffer();

@@ -7,6 +7,7 @@ function fullContent(x) {
   }
   return who ? `前往拜訪${who}，${x.content}` : x.content;
 }
+function contentUnits(s, size) { let u = 0; for (const ch of String(s)) u += (/[\u0000-ÿ]/.test(ch) ? 1.1 : 2.1) * size / 11; return u; }
 // Wraps C/D/E of a row and grows the row so no text is hidden; font size stays as in the template.
 function fitRow(ws, row) {
   const textUnits = (s, size) => { let u = 0; for (const ch of String(s)) u += (/[\u0000-ÿ]/.test(ch) ? 1.1 : 2.1) * size / 11; return u; };
@@ -70,4 +71,4 @@ function fillTemplate(ws, opts) {
   return overflow;
 }
 
-if (typeof module !== "undefined") module.exports = { fillTemplate, fullContent, zhNum };
+if (typeof module !== "undefined") module.exports = { fillTemplate, fullContent, contentUnits, zhNum };
