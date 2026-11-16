@@ -7,6 +7,23 @@ function fullContent(x) {
   }
   return who ? `前往拜訪${who}，${x.content}` : x.content;
 }
+// Wraps C/D/E of a row and grows the row so no text is hidden; font size stays as in the template.
+function fitRow(ws, row) {
+  const textUnits = (s, size) => { let u = 0; for (const ch of String(s)) u += (/[\u0000-ÿ]/.test(ch) ? 1.1 : 2.1) * size / 11; return u; };
+  let lines = 1, lineHeight = 19.8;
+  for (const col of ["C", "D", "E"]) {
+    const c = ws.getCell(`${col}${row}`);
+    if (c.value == null || c.value === "") continue;
+    const size = (c.font && c.font.size) || 12;
+    const width = (ws.getColumn(col).width || 10) - 1;
+    const n = Math.max(1, Math.ceil(textUnits(c.value, size) / width));
+    if (n > 1) c.style = { ...c.style, alignment: { ...(c.style.alignment || {}), wrapText: true } };
+    lines = Math.max(lines, n);
+    lineHeight = Math.max(lineHeight, size * 1.4);
+  }
+  const base = ws.getRow(row).height || 19.8;
+  if (lines > 1) ws.getRow(row).height = Math.max(base, Math.ceil(lines * lineHeight * 0.9));
+}
 function zhNum(n) {
   const d = ["零","一","二","三","四","五","六","七","八","九"];
   if (n < 10) return d[n];
@@ -43,6 +60,7 @@ function fillTemplate(ws, opts) {
       const ec = ws.getCell(`E${row}`);
       ec.value = text;
       if (text === "特休" || text === "連假") ec.style = { ...ec.style, alignment: { ...(ec.style.alignment || {}), horizontal: "center", vertical: "middle" } };
+      if (x) fitRow(ws, row);
       if (x && x.followup) notes.push(`${x.client}：${x.followup}${x.done ? "(已完成)" : ""}`);
     }
     ws.getCell(`F${top}`).value = notes.length ? notes.join("\n") : null;
