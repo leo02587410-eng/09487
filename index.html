@@ -1,0 +1,525 @@
+<title>業務週報表</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+/* Layout: app bar with week switcher; left column = week summary + entry form, right column = day-by-day timeline. Stacks on phones. */
+:root {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --ink: #17211d;
+  --muted: #5b6862;
+  --line: #dde3e0;
+  --accent: #1f6f5c;
+  --accent-soft: #e2f0eb;
+  --on-accent: #ffffff;
+  --warn: #a4541a;
+  --warn-soft: #fbeee2;
+  --danger: #b3261e;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111715; --surface: #19211e; --ink: #e6ece9; --muted: #97a59f; --line: #2b3632;
+    --accent: #5cc3a5; --accent-soft: #1d3530; --on-accent: #0d1a16;
+    --warn: #e7a26a; --warn-soft: #3a2a1d; --danger: #ff8a80; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111715; --surface: #19211e; --ink: #e6ece9; --muted: #97a59f; --line: #2b3632;
+  --accent: #5cc3a5; --accent-soft: #1d3530; --on-accent: #0d1a16;
+  --warn: #e7a26a; --warn-soft: #3a2a1d; --danger: #ff8a80; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.appbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.brand { display: flex; flex-direction: column; }
+.brand h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: .02em; text-wrap: balance; }
+.brand span { color: var(--muted); font-size: 13px; }
+.weeknav { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.weeknav .label { padding: 0 10px; text-align: center; min-width: 0; }
+.weeknav .label b { display: block; font-size: 14px; }
+.weeknav .label small { font-family: var(--font-data); color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 7px 12px; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.icon-btn { width: 36px; height: 36px; padding: 0; border: none; font-size: 18px; }
+.btn-primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 500; }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 4px 8px; font-size: 13px; }
+.btn-ghost:hover { color: var(--ink); border-color: var(--line); }
+.btn-danger { color: var(--danger); }
+.btn-danger.armed { background: var(--danger); color: var(--surface); border-color: var(--danger); }
+
+.layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; min-width: 0; }
+.panel h2 { margin: 0 0 12px; font-size: 15px; font-weight: 700; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { display: flex; flex-direction: column; }
+.stat b { font-family: var(--font-data); font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.stat span { font-size: 12px; color: var(--muted); }
+.stat.warn b { color: var(--warn); }
+.week-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.week-actions button { flex: 1 1 auto; font-size: 13px; }
+
+form { display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 13px; color: var(--muted); font-weight: 500; }
+.field label em { color: var(--danger); font-style: normal; }
+input, textarea, select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
+textarea { resize: vertical; min-height: 84px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.editing-note { font-size: 13px; color: var(--accent); background: var(--accent-soft); padding: 6px 10px; border-radius: 6px; }
+datalist { display: none; }
+
+.main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.toolbar input { flex: 1 1 220px; background: var(--surface); }
+.day { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; }
+.day-head { padding-top: 4px; text-align: center; }
+.day-head .dow { font-size: 13px; color: var(--muted); }
+.day-head .dnum { font-family: var(--font-data); font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.day.today .dnum { color: var(--accent); }
+.day.today .dow::after { content: " · 今天"; color: var(--accent); }
+.day-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; border-left: 1px solid var(--line); padding-left: 14px; padding-block: 2px 8px; }
+.day-empty { color: var(--muted); font-size: 13px; padding-block: 6px; }
+.entry { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.entry-top { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.client { font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+.loc { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.loc::before { content: "📍 "; }
+.content { white-space: pre-wrap; overflow-wrap: anywhere; }
+.follow { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; background: var(--warn-soft); border-radius: 8px; padding: 8px 10px; }
+.follow.done { background: var(--accent-soft); }
+.follow.done .ftext { text-decoration: line-through; color: var(--muted); }
+.follow input { width: auto; margin-top: 4px; accent-color: var(--accent); }
+.follow .ftag { font-weight: 500; color: var(--warn); white-space: nowrap; }
+.follow.done .ftag { color: var(--accent); }
+.ftext { overflow-wrap: anywhere; min-width: 0; }
+.entry-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.state { text-align: center; color: var(--muted); padding: 40px 16px; background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 14px; z-index: 20; }
+.copy-fallback { width: 100%; min-height: 160px; font-family: var(--font-data); font-size: 12px; margin-top: 10px; }
+@media (prefers-reduced-motion: no-preference) { .entry { transition: border-color .15s; } .entry:hover { border-color: var(--accent); } }
+</style>
+
+<div class="wrap">
+  <header class="appbar">
+    <div class="brand">
+      <h1>業務週報表</h1>
+      <span>記錄每次拜訪的地點、客戶與談論內容</span>
+    </div>
+    <div class="weeknav" role="group" aria-label="切換週次">
+      <button class="icon-btn" id="prevWeek" aria-label="上一週">‹</button>
+      <div class="label"><b id="weekTitle">本週</b><small id="weekRange"></small></div>
+      <button class="icon-btn" id="nextWeek" aria-label="下一週">›</button>
+      <button id="thisWeek" class="btn-ghost">回本週</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="side">
+      <section class="panel" aria-labelledby="sumTitle">
+        <h2 id="sumTitle">本週摘要</h2>
+        <div class="stats">
+          <div class="stat"><b id="sVisits">0</b><span>筆紀錄</span></div>
+          <div class="stat"><b id="sClients">0</b><span>位客戶</span></div>
+          <div class="stat warn"><b id="sOpen">0</b><span>待追蹤</span></div>
+        </div>
+        <div class="week-actions">
+          <button id="copyReport">複製週報文字</button>
+          <button id="exportCsv" class="btn-primary" hidden>匯出業務週報表 (Excel)</button>
+        </div>
+        <div class="field" style="margin-top:12px"><label for="fStaff">報表右上角業務員欄</label><input id="fStaff" value="業務一部業務員:許宏維" autocomplete="off"></div>
+        <textarea id="copyFallback" class="copy-fallback" hidden readonly aria-label="週報文字"></textarea>
+      </section>
+
+      <section class="panel" aria-labelledby="formTitle">
+        <h2 id="formTitle">新增紀錄</h2>
+        <form id="entryForm" novalidate>
+          <div id="editingNote" class="editing-note" hidden>正在編輯一筆紀錄</div>
+          <div class="row2">
+            <div class="field"><label for="fDate">日期 <em>*</em></label><input type="date" id="fDate" required></div>
+            <div class="field"><label for="fTime">時間</label><input type="time" id="fTime"></div>
+          </div>
+          <button type="button" id="nowBtn" class="btn-ghost" style="align-self:flex-start">⏱ 設為現在時間</button>
+          <div class="field"><label for="fLoc">地點 <em>*</em></label><select id="fLoc" required>
+            <option value="">請選擇地點</option>
+            <optgroup label="北部"><option>基隆市</option><option>台北市</option><option>新北市</option><option>桃園市</option><option>新竹市</option><option>新竹縣</option><option>宜蘭縣</option></optgroup>
+            <optgroup label="中部"><option>苗栗縣</option><option>台中市</option><option>彰化縣</option><option>南投縣</option><option>雲林縣</option></optgroup>
+            <optgroup label="南部"><option>嘉義市</option><option>嘉義縣</option><option>台南市</option><option>高雄市</option><option>屏東縣</option></optgroup>
+            <optgroup label="東部"><option>花蓮縣</option><option>台東縣</option></optgroup>
+            <optgroup label="離島"><option>澎湖縣</option><option>金門縣</option><option>連江縣</option></optgroup>
+            <option>電洽</option>
+          </select></div>
+          <div class="field"><label for="fClient">客戶名稱 <em>*</em></label><input id="fClient" list="clientList" placeholder="公司名稱" autocomplete="off" required></div>
+          <div class="row2">
+            <div class="field"><label for="fPerson">拜訪人姓名</label><input id="fPerson" list="personList" placeholder="例：王大明" autocomplete="off"></div>
+            <div class="field"><label for="fTitle">職位</label><select id="fTitle"><option value="">請選擇職位</option><option>老闆</option><option>老闆娘</option><option>總經理</option><option>副總</option><option>經理</option><option>副理</option><option>工地主任</option><option>工程師</option><option>先生</option><option>小姐</option></select></div>
+          </div>
+          <datalist id="personList"></datalist>
+
+          <div class="field"><label for="fContent">談論工作內容 <em>*</em></label><textarea id="fContent" placeholder="會談重點、需求、結論…" required></textarea></div>
+          <div class="field"><label for="fFollow">後續追蹤事項</label><input id="fFollow" placeholder="例：週三前寄報價單" autocomplete="off"></div>
+          <div id="formError" class="field" hidden><span style="color:var(--danger);font-size:13px" id="formErrorText"></span></div>
+          <div class="form-actions">
+            <button type="button" id="cancelEdit" class="btn-ghost" hidden>取消編輯</button>
+            <button type="submit" class="btn-primary" id="saveBtn">儲存紀錄</button>
+          </div>
+        </form>
+        <datalist id="clientList"></datalist>
+        <datalist id="locList"></datalist>
+      </section>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar">
+        <input type="search" id="search" placeholder="搜尋客戶、地點或內容（搜尋全部週次）" aria-label="搜尋紀錄">
+      </div>
+      <div id="list"><div class="state">正在載入紀錄…</div></div>
+    </main>
+  </div>
+</div>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const DOW = ["日", "一", "二", "三", "四", "五", "六"];
+  const pad = (n) => String(n).padStart(2, "0");
+  const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parse = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const mondayOf = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const w = (x.getDay() + 6) % 7; x.setDate(x.getDate() - w); return x; };
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const isoWeek = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - y0) / 86400000 + 1) / 7); };
+  const md = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+
+  let weekStart = mondayOf(new Date());
+  let entries = [];
+  let loaded = false;
+  let db = null, col = null, downloads = null;
+  let editingId = null;
+  let armedDelete = null;
+
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 2200);
+  }
+
+  const byDateTime = (a, b) => a.date.localeCompare(b.date) || (a.time || "99").localeCompare(b.time || "99") || (a.createdAt || 0) - (b.createdAt || 0);
+  const nowTime = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  function weekEntries() {
+    const s = ymd(weekStart), e = ymd(addDays(weekStart, 6));
+    return entries.filter((x) => x.date >= s && x.date <= e);
+  }
+
+  function renderHeader() {
+    const end = addDays(weekStart, 6);
+    const thisMon = ymd(mondayOf(new Date()));
+    const diff = Math.round((weekStart - parse(thisMon)) / (7 * 86400000));
+    $("weekTitle").textContent = diff === 0 ? "本週" : diff === -1 ? "上週" : diff === 1 ? "下週" : `第 ${isoWeek(weekStart)} 週`;
+    $("weekRange").textContent = `${weekStart.getFullYear()} W${pad(isoWeek(weekStart))} · ${md(weekStart)}–${md(end)}`;
+    $("sumTitle").textContent = diff === 0 ? "本週摘要" : `${md(weekStart)}–${md(end)} 摘要`;
+    $("thisWeek").hidden = diff === 0;
+  }
+
+  function renderStats() {
+    const w = weekEntries();
+    $("sVisits").textContent = w.length;
+    $("sClients").textContent = new Set(w.map((x) => x.client.trim())).size;
+    $("sOpen").textContent = w.filter((x) => x.followup && !x.done).length;
+  }
+
+  function renderLists() {
+    const fill = (id, vals) => {
+      const el = $(id); el.textContent = "";
+      [...new Set(vals.filter(Boolean))].sort().forEach((v) => { const o = document.createElement("option"); o.value = v; el.appendChild(o); });
+    };
+    fill("clientList", entries.map((x) => x.client));
+    fill("locList", entries.map((x) => x.location));
+    fill("personList", entries.map((x) => x.person));
+  }
+
+  function entryEl(x, showDate) {
+    const card = document.createElement("article");
+    card.className = "entry";
+    const top = document.createElement("div"); top.className = "entry-top";
+    if (x.time) { const tm = document.createElement("span"); tm.style.cssText = "font-family:var(--font-data);font-size:13px;color:var(--accent)"; tm.textContent = x.time; top.appendChild(tm); }
+    const c = document.createElement("span"); c.className = "client"; c.textContent = x.client; top.appendChild(c);
+    if (x.location) { const l = document.createElement("span"); l.className = "loc"; l.textContent = x.location; top.appendChild(l); }
+    if (showDate) { const d = document.createElement("span"); d.className = "loc"; d.style.cssText = "font-family:var(--font-data)"; const dt = parse(x.date); d.textContent = `${x.date}（${DOW[dt.getDay()]}）`; d.classList.remove("loc"); d.style.color = "var(--muted)"; d.style.fontSize = "13px"; top.appendChild(d); }
+    card.appendChild(top);
+    const body = document.createElement("div"); body.className = "content"; body.textContent = fullContent(x); card.appendChild(body);
+    if (x.followup) {
+      const f = document.createElement("label"); f.className = "follow" + (x.done ? " done" : "");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !!x.done; cb.id = "done-" + x.id;
+      cb.setAttribute("aria-label", "標記後續事項完成");
+      cb.addEventListener("change", () => toggleDone(x, cb.checked));
+      const tag = document.createElement("span"); tag.className = "ftag"; tag.textContent = x.done ? "已完成" : "待追蹤";
+      const tx = document.createElement("span"); tx.className = "ftext"; tx.textContent = x.followup;
+      f.append(cb, tag, tx); card.appendChild(f);
+    }
+    if (db) {
+      const act = document.createElement("div"); act.className = "entry-actions";
+      const ed = document.createElement("button"); ed.className = "btn-ghost"; ed.textContent = "編輯"; ed.addEventListener("click", () => startEdit(x));
+      const del = document.createElement("button"); del.className = "btn-ghost btn-danger"; del.textContent = "刪除";
+      if (armedDelete === x.id) { del.classList.add("armed"); del.textContent = "確定刪除？"; }
+      del.addEventListener("click", () => onDelete(x));
+      act.append(ed, del); card.appendChild(act);
+    }
+    return card;
+  }
+
+  function renderList() {
+    const list = $("list"); list.textContent = "";
+    if (!loaded) { const s = document.createElement("div"); s.className = "state"; s.textContent = db === false ? "無法連線到紀錄資料庫，請登入後重新開啟此頁。" : "正在載入紀錄…"; list.appendChild(s); return; }
+    const q = $("search").value.trim().toLowerCase();
+    if (q) {
+      const hits = entries.filter((x) => [x.client, x.location, x.content, x.followup, x.person, x.title].some((v) => (v || "").toLowerCase().includes(q)))
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const wrap = document.createElement("div"); wrap.style.cssText = "display:flex;flex-direction:column;gap:10px";
+      const h = document.createElement("div"); h.style.cssText = "color:var(--muted);font-size:13px"; h.textContent = `找到 ${hits.length} 筆符合「${q}」的紀錄`;
+      wrap.appendChild(h);
+      hits.forEach((x) => wrap.appendChild(entryEl(x, true)));
+      list.appendChild(wrap); return;
+    }
+    const w = weekEntries();
+    if (!entries.length) {
+      const s = document.createElement("div"); s.className = "state";
+      s.innerHTML = "<b>還沒有任何紀錄</b><br>在左側填寫日期、地點、客戶名稱與談論內容，按「儲存紀錄」就會出現在這裡。";
+      list.appendChild(s); return;
+    }
+    const today = ymd(new Date());
+    const container = document.createElement("div"); container.style.cssText = "display:flex;flex-direction:column;gap:6px";
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(weekStart, i), key = ymd(d);
+      const items = w.filter((x) => x.date === key).sort(byDateTime);
+      if (i >= 5 && !items.length) continue; // hide empty weekend days
+      const day = document.createElement("section"); day.className = "day" + (key === today ? " today" : "");
+      day.innerHTML = `<div class="day-head"><div class="dow">週${DOW[d.getDay()]}</div><div class="dnum">${md(d)}</div></div>`;
+      const body = document.createElement("div"); body.className = "day-body";
+      if (!items.length) {
+        const e = document.createElement("button"); e.className = "btn-ghost day-empty"; e.style.textAlign = "left";
+        e.textContent = "＋ 這天沒有紀錄，點此新增"; e.addEventListener("click", () => { resetForm(); $("fDate").value = key; $("fClient").focus(); });
+        body.appendChild(e);
+      } else items.forEach((x) => body.appendChild(entryEl(x, false)));
+      day.appendChild(body); container.appendChild(day);
+    }
+    list.appendChild(container);
+  }
+
+  function render() { renderHeader(); renderStats(); renderList(); }
+
+  function resetForm() {
+    editingId = null;
+    $("entryForm").reset();
+    $("fDate").value = ymd(new Date()) >= ymd(weekStart) && ymd(new Date()) <= ymd(addDays(weekStart, 6)) ? ymd(new Date()) : ymd(weekStart);
+    $("fTime").value = nowTime();
+    $("editingNote").hidden = true; $("cancelEdit").hidden = true;
+    $("formTitle").textContent = "新增紀錄"; $("saveBtn").textContent = "儲存紀錄";
+    $("formError").hidden = true;
+  }
+
+  function startEdit(x) {
+    editingId = x.id;
+    $("fDate").value = x.date; $("fTime").value = x.time || ""; setLoc(x.location || ""); $("fClient").value = x.client; $("fPerson").value = x.person || ""; setOpt("fTitle", x.title || "");
+    $("fContent").value = x.content; $("fFollow").value = x.followup || "";
+    $("editingNote").hidden = false; $("cancelEdit").hidden = false;
+    $("formTitle").textContent = "編輯紀錄"; $("saveBtn").textContent = "儲存變更";
+    $("entryForm").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    $("fClient").focus();
+  }
+
+  function showError(msg) { $("formErrorText").textContent = msg; $("formError").hidden = !msg; }
+
+  function setLoc(v) { setOpt("fLoc", v); }
+  function setOpt(id, v) {
+    const sel = $(id);
+    if (v && ![...sel.options].some((o) => o.value === v)) { const o = document.createElement("option"); o.textContent = v; sel.appendChild(o); }
+    sel.value = v;
+  }
+
+  async function onSubmit(ev) {
+    ev.preventDefault();
+    if (!col) { showError("紀錄資料庫尚未連線，無法儲存。"); return; }
+    const date = $("fDate").value, client = $("fClient").value.trim(), content = $("fContent").value.trim();
+    if (!date || !$("fLoc").value.trim() || !client || !content) { showError("請填寫日期、地點、客戶名稱與談論工作內容。"); return; }
+    showError("");
+    const prev = editingId ? entries.find((x) => x.id === editingId) : null;
+    const now = Date.now();
+    const data = {
+      date, client, content,
+      location: $("fLoc").value.trim(),
+      person: $("fPerson").value.trim(),
+      title: $("fTitle").value.trim(),
+      time: $("fTime").value,
+      followup: $("fFollow").value.trim(),
+      done: prev ? !!prev.done : false,
+      createdAt: prev ? (prev.createdAt || now) : now,
+      updatedAt: now,
+    };
+    $("saveBtn").disabled = true;
+    try {
+      if (editingId) await col.doc(editingId).set(data); else await col.add(data);
+      const ws = mondayOf(parse(date));
+      if (ymd(ws) !== ymd(weekStart)) { weekStart = ws; }
+      toast(prev ? "已更新紀錄" : "已儲存紀錄");
+      resetForm(); render();
+    } catch (e) {
+      showError(e && e.code === "quota_exceeded" ? "紀錄數量已達上限，請刪除舊紀錄後再試。" : e && e.code === "invalid_argument" ? "你沒有寫入這份日誌的權限。" : "儲存失敗，請稍後再試一次。");
+    } finally { $("saveBtn").disabled = false; }
+  }
+
+  async function toggleDone(x, done) {
+    try { await col.doc(x.id).update({ done, updatedAt: Date.now() }); }
+    catch { toast("更新失敗，請再試一次"); render(); }
+  }
+
+  async function onDelete(x) {
+    if (armedDelete !== x.id) { armedDelete = x.id; renderList(); setTimeout(() => { if (armedDelete === x.id) { armedDelete = null; renderList(); } }, 4000); return; }
+    armedDelete = null;
+    try { await col.doc(x.id).delete(); toast("已刪除紀錄"); if (editingId === x.id) resetForm(); }
+    catch { toast("刪除失敗，請再試一次"); }
+  }
+
+  function reportText() {
+    const end = addDays(weekStart, 6);
+    const w = weekEntries().sort(byDateTime);
+    const lines = [`工作週報 ${ymd(weekStart)} ~ ${ymd(end)}（第 ${isoWeek(weekStart)} 週）`, `共 ${w.length} 筆紀錄，${new Set(w.map((x) => x.client)).size} 位客戶`, ""];
+    let last = "";
+    w.forEach((x) => {
+      if (x.date !== last) { const d = parse(x.date); lines.push(`【${md(d)}（${DOW[d.getDay()]}）】`); last = x.date; }
+      lines.push(`・${x.time ? x.time + "　" : ""}客戶：${x.client}${x.location ? `　地點：${x.location}` : ""}`);
+      lines.push(`  內容：${fullContent(x).replace(/\n/g, "\n        ")}`);
+      if (x.followup) lines.push(`  後續：${x.followup}${x.done ? "（已完成）" : ""}`);
+    });
+    if (!w.length) lines.push("本週尚無紀錄。");
+    return lines.join("\n");
+  }
+
+  async function copyReport() {
+    const text = reportText();
+    try { await navigator.clipboard.writeText(text); toast("已複製週報文字"); $("copyFallback").hidden = true; }
+    catch { const ta = $("copyFallback"); ta.value = text; ta.hidden = false; ta.focus(); ta.select(); toast("請按 Ctrl+C 複製已選取的文字"); }
+  }
+
+// Shared: fills the 業務預報表 template. Used by the page and by the node test.
+function fullContent(x) {
+  const who = `${x.person || ""}${x.title || ""}`;
+  return who ? `前往拜訪${who}，${x.content}` : x.content;
+}
+function zhNum(n) {
+  const d = ["零","一","二","三","四","五","六","七","八","九"];
+  if (n < 10) return d[n];
+  if (n < 20) return "十" + (n % 10 ? d[n % 10] : "");
+  return d[Math.floor(n / 10)] + "十" + (n % 10 ? d[n % 10] : "");
+}
+function fillTemplate(ws, opts) {
+  // opts: {monday: Date, week: number, staff: string, entries: [{date:'YYYY-MM-DD', time, location, client, content, followup, done}]}
+  const pad = (n) => String(n).padStart(2, "0");
+  const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const DOW = ["一","二","三","四","五"];
+  ws.getCell("A2").value = `週期:第${zhNum(opts.week)}週`;
+  ws.getCell("E2").value = opts.staff;
+  const overflow = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(opts.monday.getFullYear(), opts.monday.getMonth(), opts.monday.getDate() + i);
+    const top = 4 + i * 8;
+    ws.getCell(`A${top}`).value = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    ws.getCell(`B${top}`).value = DOW[i];
+    const items = opts.entries.filter((x) => x.date === ymd(d));
+    const notes = [];
+    for (let r = 0; r < 8; r++) {
+      const row = top + r;
+      const x = items[r];
+      ws.getCell(`C${row}`).value = x ? (x.location || "") : null;
+      ws.getCell(`D${row}`).value = x ? x.client : null;
+      let text = x ? fullContent(x).replace(/\s*\n\s*/g, "；") : null;
+      if (x && r === 7 && items.length > 8) {
+        const extra = items.slice(8).map((y) => `${y.client}：${fullContent(y).replace(/\s*\n\s*/g, "；")}`);
+        text += "；" + extra.join("；");
+        overflow.push(ymd(d));
+      }
+      ws.getCell(`E${row}`).value = text;
+      if (x && x.followup) notes.push(`${x.client}：${x.followup}${x.done ? "(已完成)" : ""}`);
+    }
+    ws.getCell(`F${top}`).value = notes.length ? notes.join("\n") : null;
+    if (notes.length) ws.getCell(`F${top}`).alignment = { ...(ws.getCell(`F${top}`).alignment || {}), wrapText: true, vertical: "top" };
+  }
+  return overflow;
+}
+
+
+  const TEMPLATE_B64 = "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";
+  async function exportCsv() {
+    if (!window.ExcelJS) { toast("Excel 元件尚未載入，請稍後再試"); return; }
+    try {
+      const bin = atob(TEMPLATE_B64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(bytes.buffer);
+      const ws = wb.worksheets[0];
+      const week = isoWeek(weekStart);
+      const all = weekEntries().sort(byDateTime);
+      const overflow = fillTemplate(ws, { monday: weekStart, week, staff: $("fStaff").value.trim(), entries: all });
+      ws.name = `${weekStart.getFullYear()}-第${week}週`;
+      ws.getColumn(1).width = 16;
+      ws.getColumn(3).width = 13;
+      ws.getColumn(4).width = 15;
+      ws.getCell("A1").value = "業 務 週 報 表";
+      const weekend = all.filter((x) => parse(x.date).getDay() % 6 === 0).length;
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      await downloads.save({ filename: `業務週報表_第${week}週_${ymd(weekStart)}.xlsx`, data: blob });
+      if (weekend) toast(`週末有 ${weekend} 筆紀錄，範本只有週一到週五，未列入`);
+      else if (overflow.length) toast("有一天超過 8 筆，多出的已併入當天第 8 列");
+    } catch (e) {
+      if (!(e && e.code === "declined")) toast("匯出未完成，請再試一次");
+    }
+  }
+
+  async function saveStaff() {
+    if (!db) return;
+    try { await db.doc("settings/report").set({ staff: $("fStaff").value.trim() }); } catch {}
+  }
+
+  $("prevWeek").addEventListener("click", () => { weekStart = addDays(weekStart, -7); if (!editingId) resetForm(); render(); });
+  $("nextWeek").addEventListener("click", () => { weekStart = addDays(weekStart, 7); if (!editingId) resetForm(); render(); });
+  $("thisWeek").addEventListener("click", () => { weekStart = mondayOf(new Date()); if (!editingId) resetForm(); render(); });
+  $("entryForm").addEventListener("submit", onSubmit);
+  $("cancelEdit").addEventListener("click", resetForm);
+  $("fStaff").addEventListener("change", saveStaff);
+  $("nowBtn").addEventListener("click", () => { $("fDate").value = ymd(new Date()); $("fTime").value = nowTime(); });
+  $("copyReport").addEventListener("click", copyReport);
+  $("exportCsv").addEventListener("click", exportCsv);
+  $("search").addEventListener("input", renderList);
+
+  resetForm(); render();
+
+  (async () => {
+    const c = window.claude;
+    if (!c || !c.use) { db = false; loaded = false; renderList(); return; }
+    try { downloads = await c.use("downloads"); if (downloads) $("exportCsv").hidden = false; } catch {}
+    db = await c.use("db");
+    if (!db) { db = false; renderList(); return; }
+    col = db.collection("entries");
+    db.doc("settings/report").get().then((d) => { if (d.exists && d.data().staff && document.activeElement !== $("fStaff")) $("fStaff").value = d.data().staff; }).catch(() => {});
+    col.orderBy("date", "asc").limit(1000).onSnapshot((snap) => {
+      entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.date && x.client);
+      loaded = true; renderLists(); render();
+    }, () => { loaded = true; render(); toast("紀錄同步中斷，請重新整理頁面"); });
+  })();
+})();
+</script>
