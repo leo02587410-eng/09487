@@ -174,7 +174,7 @@ datalist { display: none; }
           <datalist id="personList"></datalist>
 
           <div class="field"><label for="fContent">談論工作內容 <em>*</em></label>
-            <div class="chips" role="group" aria-label="常用內容"><button type="button" class="chip" data-preset="業務週會議">業務週會議</button><button type="button" class="chip" data-preset="特休">特休</button><button type="button" class="chip" data-preset="連假">連假</button></div>
+            <div class="chips" role="group" aria-label="常用內容"><button type="button" class="chip" data-preset="業務週會議">業務週會議</button><button type="button" class="chip" data-preset="特休">特休</button><button type="button" class="chip" data-preset="連假">連假</button><button type="button" class="chip" data-preset="現場場勘" data-append="1">現場場勘</button><button type="button" class="chip" data-preset="討論圖面" data-append="1">討論圖面</button><button type="button" class="chip" data-preset="追蹤帳款" data-append="1">追蹤帳款</button><button type="button" class="chip" data-preset="關心近期狀況" data-append="1">關心近期狀況</button></div>
             <textarea id="fContent" placeholder="點上方選項，或自行輸入會談重點、需求、結論…" required></textarea></div>
           <div class="field"><label for="fFollow">後續追蹤事項</label><input id="fFollow" placeholder="例：週三前寄報價單" autocomplete="off"></div>
           <div id="formError" class="field" hidden><span style="color:var(--danger);font-size:13px" id="formErrorText"></span></div>
@@ -510,7 +510,9 @@ function fillTemplate(ws, opts) {
   document.querySelectorAll(".chip[data-client]").forEach((b) => b.addEventListener("click", () => { $("fClient").value = b.dataset.client; $("fClient").focus(); }));
   document.querySelectorAll(".chip[data-preset]").forEach((b) => b.addEventListener("click", () => {
     const p = b.dataset.preset;
-    $("fContent").value = p;
+    const cur = $("fContent").value.trim();
+    if (b.dataset.append && cur && !/^(特休|連假|業務週會議)$/.test(cur)) { if (!cur.includes(p)) $("fContent").value = cur + "、" + p; }
+    else $("fContent").value = p;
     if (p === "業務週會議") { if (!$("fLoc").value) setLoc("公司"); if (!$("fClient").value.trim()) $("fClient").value = "公司"; }
     $("fContent").focus();
   }));
