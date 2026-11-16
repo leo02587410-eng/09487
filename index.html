@@ -173,6 +173,7 @@ datalist { display: none; }
             <div class="field"><label for="fPerson">拜訪人姓名</label><input id="fPerson" list="personList" placeholder="例：王大明" autocomplete="off"></div>
             <div class="field"><label for="fTitle">職位</label><select id="fTitle"><option value="">請選擇職位</option><option>老闆</option><option>老闆娘</option><option>總經理</option><option>副總</option><option>經理</option><option>副理</option><option>主任</option><option>工程師</option><option>先生</option><option>小姐</option></select></div>
           </div>
+          <div id="personPick" class="field" hidden><label>這間公司先前拜訪過</label><div class="chips" id="personChips" role="group" aria-label="先前拜訪人"></div></div>
           <datalist id="personList"></datalist>
 
           <div class="field"><label for="fContent">談論工作內容 <em>*</em></label>
@@ -257,6 +258,7 @@ datalist { display: none; }
     fill("clientList", ["空白", ...entries.map((x) => x.client)]);
     fill("locList", entries.map((x) => x.location));
     fill("personList", entries.map((x) => x.person));
+    try { showPeople(); } catch {}
   }
 
   function entryEl(x, showDate) {
@@ -339,7 +341,7 @@ datalist { display: none; }
 
   function startEdit(x) {
     editingId = x.id;
-    $("fDate").value = x.date; setLoc(x.location || ""); $("fClient").value = x.client; $("fPerson").value = x.person || ""; setOpt("fTitle", x.title || ""); titleTouched = !!x.title;
+    $("fDate").value = x.date; setLoc(x.location || ""); $("fClient").value = x.client; $("fPerson").value = x.person || ""; setOpt("fTitle", x.title || ""); titleTouched = !!x.title; shownFor = null; showPeople();
     $("fContent").value = x.content; $("fFollow").value = x.followup || "";
     $("editingNote").hidden = false; $("cancelEdit").hidden = false;
     $("formTitle").textContent = "編輯紀錄"; $("saveBtn").textContent = "儲存變更";
@@ -549,10 +551,36 @@ function fillTemplate(ws, opts) {
       .sort((a, b) => ((b.client === client) - (a.client === client)) || (b.updatedAt || 0) - (a.updatedAt || 0));
     if (past.length) setOpt("fTitle", past[0].title);
   };
+  let shownFor = null, shownCount = -1;
+  const showPeople = () => {
+    const client = $("fClient").value.trim();
+    if (client === shownFor && entries.length === shownCount) return;
+    shownFor = client; shownCount = entries.length;
+    const box = $("personChips"); box.textContent = "";
+    const seen = new Map();
+    if (client && client !== "空白" && client !== "無") {
+      entries.filter((x) => x.client === client && x.person && x.id !== editingId)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .forEach((x) => { if (!seen.has(x.person)) seen.set(x.person, x.title || ""); });
+    }
+    seen.forEach((title, name) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "chip";
+      b.textContent = name + (title ? " " + title : "");
+      b.addEventListener("click", () => { $("fPerson").value = name; if (title) { setOpt("fTitle", title); titleTouched = true; } $("fContent").focus(); });
+      box.appendChild(b);
+    });
+    $("personPick").hidden = seen.size === 0;
+    const el = $("personList"); el.textContent = "";
+    const names = [...seen.keys(), ...new Set(entries.map((x) => x.person).filter((p) => p && !seen.has(p)))];
+    names.forEach((v) => { const o = document.createElement("option"); o.value = v; el.appendChild(o); });
+  };
+  $("fClient").addEventListener("input", showPeople);
+  $("fClient").addEventListener("change", showPeople);
+  $("entryForm").addEventListener("reset", () => setTimeout(showPeople, 0));
   $("fPerson").addEventListener("input", autoTitle);
   $("fPerson").addEventListener("change", autoTitle);
   document.querySelectorAll(".chip[data-loc]").forEach((b) => b.addEventListener("click", () => { setLoc(b.dataset.loc); $("fLoc").focus(); }));
-  document.querySelectorAll(".chip[data-client]").forEach((b) => b.addEventListener("click", () => { $("fClient").value = b.dataset.client; $("fClient").focus(); }));
+  document.querySelectorAll(".chip[data-client]").forEach((b) => b.addEventListener("click", () => { $("fClient").value = b.dataset.client; showPeople(); $("fClient").focus(); }));
   document.querySelectorAll(".chip[data-preset]").forEach((b) => b.addEventListener("click", () => {
     const p = b.dataset.preset;
     const cur = $("fContent").value.trim();
