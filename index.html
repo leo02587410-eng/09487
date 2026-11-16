@@ -81,6 +81,9 @@ input, textarea, select { font: inherit; color: var(--ink); background: var(--bg
 textarea { resize: vertical; min-height: 84px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 13px; padding: 4px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.chip:hover { border-color: var(--accent); }
 .editing-note { font-size: 13px; color: var(--accent); background: var(--accent-soft); padding: 6px 10px; border-radius: 6px; }
 datalist { display: none; }
 
@@ -168,7 +171,9 @@ datalist { display: none; }
           </div>
           <datalist id="personList"></datalist>
 
-          <div class="field"><label for="fContent">談論工作內容 <em>*</em></label><textarea id="fContent" placeholder="會談重點、需求、結論…" required></textarea></div>
+          <div class="field"><label for="fContent">談論工作內容 <em>*</em></label>
+            <div class="chips" role="group" aria-label="常用內容"><button type="button" class="chip" data-preset="業務週會議">業務週會議</button><button type="button" class="chip" data-preset="特休">特休</button></div>
+            <textarea id="fContent" placeholder="點上方選項，或自行輸入會談重點、需求、結論…" required></textarea></div>
           <div class="field"><label for="fFollow">後續追蹤事項</label><input id="fFollow" placeholder="例：週三前寄報價單" autocomplete="off"></div>
           <div id="formError" class="field" hidden><span style="color:var(--danger);font-size:13px" id="formErrorText"></span></div>
           <div class="form-actions">
@@ -349,7 +354,9 @@ datalist { display: none; }
     ev.preventDefault();
     if (!col) { showError("紀錄資料庫尚未連線，無法儲存。"); return; }
     const date = $("fDate").value, client = $("fClient").value.trim(), content = $("fContent").value.trim();
-    if (!date || !$("fLoc").value.trim() || !client || !content) { showError("請填寫日期、地點、客戶名稱與談論工作內容。"); return; }
+    const leave = content === "特休";
+    if (!date || !content) { showError("請填寫日期與談論工作內容。"); return; }
+    if (!leave && (!$("fLoc").value.trim() || !client)) { showError("請填寫地點與客戶名稱（特休可不填）。"); return; }
     showError("");
     const prev = editingId ? entries.find((x) => x.id === editingId) : null;
     const now = Date.now();
@@ -493,6 +500,12 @@ function fillTemplate(ws, opts) {
   $("thisWeek").addEventListener("click", () => { weekStart = mondayOf(new Date()); if (!editingId) resetForm(); render(); });
   $("entryForm").addEventListener("submit", onSubmit);
   $("cancelEdit").addEventListener("click", resetForm);
+  document.querySelectorAll(".chip[data-preset]").forEach((b) => b.addEventListener("click", () => {
+    const p = b.dataset.preset;
+    $("fContent").value = p;
+    if (p === "業務週會議") { if (!$("fLoc").value) setLoc("公司"); if (!$("fClient").value.trim()) $("fClient").value = "公司"; }
+    $("fContent").focus();
+  }));
   $("fStaff").addEventListener("change", saveStaff);
   $("copyReport").addEventListener("click", copyReport);
   $("exportCsv").addEventListener("click", exportCsv);
