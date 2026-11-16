@@ -145,7 +145,7 @@ datalist { display: none; }
           <button id="copyReport">複製週報文字</button>
           <button id="exportCsv" class="btn-primary" hidden>匯出業務週報表 (Excel)</button>
         </div>
-        <div class="field" style="margin-top:12px"><label for="fStaff">報表右上角業務員欄</label><input id="fStaff" value="業務一部業務員:許宏維" autocomplete="off"></div>
+        <div class="field" style="margin-top:12px"><label for="fStaff">報表右上角業務員欄</label><input id="fStaff" value="業務一部業務員:" placeholder="例：業務一部業務員:王小明" autocomplete="off"></div>
         <textarea id="copyFallback" class="copy-fallback" hidden readonly aria-label="週報文字"></textarea>
       </section>
 
@@ -215,7 +215,7 @@ datalist { display: none; }
   let weekStart = mondayOf(new Date());
   let entries = [];
   let loaded = false;
-  let db = null, col = null, downloads = null;
+  let db = null, col = null, prof = null, downloads = null;
   let editingId = null;
   let armedDelete = null;
 
@@ -289,7 +289,7 @@ datalist { display: none; }
 
   function renderList() {
     const list = $("list"); list.textContent = "";
-    if (!loaded) { const s = document.createElement("div"); s.className = "state"; s.textContent = db === false ? "無法連線到紀錄資料庫，請登入後重新開啟此頁。" : "正在載入紀錄…"; list.appendChild(s); return; }
+    if (!loaded) { const s = document.createElement("div"); s.className = "state"; s.textContent = db === false ? "請先登入 Claude 帳號，再重新開啟此頁，才能記錄與儲存你的工作紀錄。" : "正在載入紀錄…"; list.appendChild(s); return; }
     const q = $("search").value.trim().toLowerCase();
     if (q) {
       const hits = entries.filter((x) => [x.client, x.location, x.content, x.followup, x.person, x.title].some((v) => (v || "").toLowerCase().includes(q)))
@@ -383,7 +383,7 @@ datalist { display: none; }
       toast(prev ? "已更新紀錄" : "已儲存紀錄");
       resetForm(); render();
     } catch (e) {
-      showError(e && e.code === "quota_exceeded" ? "紀錄數量已達上限，請刪除舊紀錄後再試。" : e && e.code === "invalid_argument" ? "你沒有寫入這份日誌的權限。" : "儲存失敗，請稍後再試一次。");
+      showError(e && e.code === "quota_exceeded" ? "紀錄數量已達上限，請刪除舊紀錄後再試。" : e && e.code === "invalid_argument" ? "你目前只有檢視權限，無法儲存。請向分享者申請「可使用（Contributor）」以上的權限。" : "儲存失敗，請稍後再試一次。");
     } finally { $("saveBtn").disabled = false; }
   }
 
@@ -501,7 +501,8 @@ function fillTemplate(ws, opts) {
 
   async function saveStaff() {
     if (!db) return;
-    try { await db.doc("settings/report").set({ staff: $("fStaff").value.trim() }); } catch {}
+    if (!prof) return;
+    try { await prof.set({ staff: $("fStaff").value.trim() }); toast("已儲存業務員欄"); } catch {}
   }
 
   $("prevWeek").addEventListener("click", () => { weekStart = addDays(weekStart, -7); if (!editingId) resetForm(); render(); });
@@ -532,10 +533,14 @@ function fillTemplate(ws, opts) {
     try { downloads = await c.use("downloads"); if (downloads) $("exportCsv").hidden = false; } catch {}
     db = await c.use("db");
     if (!db) { db = false; renderList(); return; }
-    col = db.collection("entries");
-    db.doc("settings/report").get().then((d) => { if (d.exists && d.data().staff && document.activeElement !== $("fStaff")) $("fStaff").value = d.data().staff; }).catch(() => {});
+    const user = await c.use("user");
+    const uid = user ? await user.id() : null;
+    if (!uid) { db = false; renderList(); return; }
+    prof = db.doc("data/users/" + uid + "/profile");
+    col = prof.collection("entries");
+    prof.get().then((d) => { if (d.exists && d.data().staff && document.activeElement !== $("fStaff")) $("fStaff").value = d.data().staff; }).catch(() => {});
     col.orderBy("date", "asc").limit(1000).onSnapshot((snap) => {
-      entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.date && x.client);
+      entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.date && x.content);
       loaded = true; renderLists(); render();
     }, () => { loaded = true; render(); toast("紀錄同步中斷，請重新整理頁面"); });
   })();

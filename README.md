@@ -6,9 +6,15 @@
 
 https://claude.ai/artifact/6gQpdzv7WwQTKLa5noYAkh
 
+## 給其他人使用
+
+1. 擁有者在軟體頁面的「分享」選單把連結分享給同事，權限設為 **Contributor（可使用）** 以上，對方才能新增與儲存紀錄。
+2. 同事用自己的 Claude 帳號登入後開啟連結即可使用。
+3. 每個人只看得到自己的紀錄；報表右上角的業務員欄位也各自設定、各自儲存。
+
 ## 檔案
 
-- `index.html`：軟體本體（Claude Artifact 頁面；紀錄存在 Artifact 的雲端資料庫）。
+- `index.html`：軟體本體（Claude Artifact 頁面；紀錄存在 Artifact 的雲端資料庫，每位使用者的紀錄各自獨立、互相看不到）。
 - `template/業務預報表範本.xlsx`：Excel 範本原檔（已內嵌於 `index.html`）。
 - `template/fill.js`：把一週紀錄填入範本的程式（與頁面內相同，可用 Node + ExcelJS 測試）。
 
