@@ -456,11 +456,14 @@ function fillTemplate(ws, opts) {
         text += "；" + extra.join("；");
         overflow.push(ymd(d));
       }
-      ws.getCell(`E${row}`).value = text;
+      const ec = ws.getCell(`E${row}`);
+      ec.value = text;
+      if (text === "特休" || text === "連假") ec.style = { ...ec.style, alignment: { ...(ec.style.alignment || {}), horizontal: "center", vertical: "middle" } };
       if (x && x.followup) notes.push(`${x.client}：${x.followup}${x.done ? "(已完成)" : ""}`);
     }
     ws.getCell(`F${top}`).value = notes.length ? notes.join("\n") : null;
-    if (notes.length) ws.getCell(`F${top}`).alignment = { ...(ws.getCell(`F${top}`).alignment || {}), wrapText: true, vertical: "top" };
+    const fc = ws.getCell(`F${top}`);
+    if (notes.length) fc.style = { ...fc.style, alignment: { ...(fc.style.alignment || {}), wrapText: true, vertical: "top" } };
   }
   return overflow;
 }
