@@ -154,9 +154,11 @@ datalist { display: none; }
         <form id="entryForm" novalidate>
           <div id="editingNote" class="editing-note" hidden>正在編輯一筆紀錄</div>
           <div class="field"><label for="fDate">日期 <em>*</em></label><input type="date" id="fDate" required></div>
-          <div class="field"><label for="fLoc">地點 <em>*</em></label><select id="fLoc" required>
+          <div class="field"><label for="fLoc">地點 <em>*</em></label>
+          <div class="chips" role="group" aria-label="常用地點"><button type="button" class="chip" data-loc="空白">空白</button></div>
+          <select id="fLoc" required>
             <option value="">請選擇地點</option>
-            <option>空白</option><option>公司</option><option>電洽</option>
+            <option>公司</option><option>電洽</option>
             <optgroup label="北部"><option>基隆市</option><option>台北市</option><option>新北市</option><option>桃園市</option><option>新竹市</option><option>新竹縣</option><option>宜蘭縣</option></optgroup>
             <optgroup label="中部"><option>苗栗縣</option><option>台中市</option><option>彰化縣</option><option>南投縣</option><option>雲林縣</option></optgroup>
             <optgroup label="南部"><option>嘉義市</option><option>嘉義縣</option><option>台南市</option><option>高雄市</option><option>屏東縣</option></optgroup>
@@ -507,6 +509,7 @@ function fillTemplate(ws, opts) {
   $("thisWeek").addEventListener("click", () => { weekStart = mondayOf(new Date()); if (!editingId) resetForm(); render(); });
   $("entryForm").addEventListener("submit", onSubmit);
   $("cancelEdit").addEventListener("click", resetForm);
+  document.querySelectorAll(".chip[data-loc]").forEach((b) => b.addEventListener("click", () => { setLoc(b.dataset.loc); $("fLoc").focus(); }));
   document.querySelectorAll(".chip[data-client]").forEach((b) => b.addEventListener("click", () => { $("fClient").value = b.dataset.client; $("fClient").focus(); }));
   document.querySelectorAll(".chip[data-preset]").forEach((b) => b.addEventListener("click", () => {
     const p = b.dataset.preset;
