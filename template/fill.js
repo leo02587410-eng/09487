@@ -1,6 +1,10 @@
 // Shared: fills the 業務預報表 template. Used by the page and by the node test.
 function fullContent(x) {
   const who = `${x.person || ""}${x.title || ""}`;
+  if (x.location === "電洽") {
+    const target = who || (x.client && x.client !== "無" && x.client !== "空白" ? x.client : "");
+    return target ? `電話拜訪${target}，${x.content}` : x.content;
+  }
   return who ? `前往拜訪${who}，${x.content}` : x.content;
 }
 function zhNum(n) {
