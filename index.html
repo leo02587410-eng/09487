@@ -339,7 +339,7 @@ datalist { display: none; }
 
   function startEdit(x) {
     editingId = x.id;
-    $("fDate").value = x.date; setLoc(x.location || ""); $("fClient").value = x.client; $("fPerson").value = x.person || ""; setOpt("fTitle", x.title || "");
+    $("fDate").value = x.date; setLoc(x.location || ""); $("fClient").value = x.client; $("fPerson").value = x.person || ""; setOpt("fTitle", x.title || ""); titleTouched = !!x.title;
     $("fContent").value = x.content; $("fFollow").value = x.followup || "";
     $("editingNote").hidden = false; $("cancelEdit").hidden = false;
     $("formTitle").textContent = "編輯紀錄"; $("saveBtn").textContent = "儲存變更";
@@ -537,6 +537,20 @@ function fillTemplate(ws, opts) {
   $("thisWeek").addEventListener("click", () => { weekStart = mondayOf(new Date()); if (!editingId) resetForm(); render(); });
   $("entryForm").addEventListener("submit", onSubmit);
   $("cancelEdit").addEventListener("click", resetForm);
+  let titleTouched = false;
+  $("fTitle").addEventListener("change", () => { titleTouched = true; });
+  $("entryForm").addEventListener("reset", () => { titleTouched = false; });
+  const autoTitle = () => {
+    if (titleTouched) return;
+    const name = $("fPerson").value.trim();
+    if (!name) return;
+    const client = $("fClient").value.trim();
+    const past = entries.filter((x) => x.person === name && x.title && x.id !== editingId)
+      .sort((a, b) => ((b.client === client) - (a.client === client)) || (b.updatedAt || 0) - (a.updatedAt || 0));
+    if (past.length) setOpt("fTitle", past[0].title);
+  };
+  $("fPerson").addEventListener("input", autoTitle);
+  $("fPerson").addEventListener("change", autoTitle);
   document.querySelectorAll(".chip[data-loc]").forEach((b) => b.addEventListener("click", () => { setLoc(b.dataset.loc); $("fLoc").focus(); }));
   document.querySelectorAll(".chip[data-client]").forEach((b) => b.addEventListener("click", () => { $("fClient").value = b.dataset.client; $("fClient").focus(); }));
   document.querySelectorAll(".chip[data-preset]").forEach((b) => b.addEventListener("click", () => {
