@@ -1,4 +1,8 @@
 // Shared: fills the 業務預報表 template. Used by the page and by the node test.
+function fullContent(x) {
+  const who = `${x.person || ""}${x.title || ""}`;
+  return who ? `前往拜訪${who}，${x.content}` : x.content;
+}
 function zhNum(n) {
   const d = ["零","一","二","三","四","五","六","七","八","九"];
   if (n < 10) return d[n];
@@ -23,11 +27,12 @@ function fillTemplate(ws, opts) {
     for (let r = 0; r < 8; r++) {
       const row = top + r;
       const x = items[r];
-      ws.getCell(`C${row}`).value = x ? (x.location || "") : null;
-      ws.getCell(`D${row}`).value = x ? x.client : null;
-      let text = x ? x.content.replace(/\s*\n\s*/g, "；") : null;
+      const blank = (v) => (!v || v === "無") ? null : v;
+      ws.getCell(`C${row}`).value = x ? blank(x.location) : null;
+      ws.getCell(`D${row}`).value = x ? blank(x.client) : null;
+      let text = x ? fullContent(x).replace(/\s*\n\s*/g, "；") : null;
       if (x && r === 7 && items.length > 8) {
-        const extra = items.slice(8).map((y) => `${y.client}：${y.content.replace(/\s*\n\s*/g, "；")}`);
+        const extra = items.slice(8).map((y) => `${y.client}：${fullContent(y).replace(/\s*\n\s*/g, "；")}`);
         text += "；" + extra.join("；");
         overflow.push(ymd(d));
       }
@@ -39,4 +44,5 @@ function fillTemplate(ws, opts) {
   }
   return overflow;
 }
-if (typeof module !== "undefined") module.exports = { fillTemplate, zhNum };
+
+if (typeof module !== "undefined") module.exports = { fillTemplate, fullContent, zhNum };
